@@ -15,12 +15,15 @@ import (
 func main() {
 	mySet := flag.NewFlagSet("", flag.ExitOnError)
 	dirPath := mySet.String("dir", "", "Path where CSV is stored")
-	dbName := mySet.String("db", "", "Dirrectory where CSV is stored")
+	dbName := mySet.String("db", "", "Path to sqlite file")
+	showCount := mySet.Bool("show-count", false, "At the end show number of items displayed")
 
 	startDate := mySet.String("start", "", "start date YYYY-MM-DD")
 	endDate := mySet.String("end", "", "end date YYYY-MM-DD")
-
-	if os.Args[1] == "loaddata" {
+	if len(os.Args) < 2 {
+		fmt.Println("Commands loaddata, usercount, list")
+		mySet.Usage()
+	} else if os.Args[1] == "loaddata" {
 		mySet.Parse(os.Args[2:])
 		dbpath := *dbName
 		db, err := sql.Open("sqlite3", "file:"+dbpath+"?cache=shared&mode=rwc")
@@ -31,36 +34,22 @@ func main() {
 		load_data.LoadData(*dirPath, dbpath, db)
 	} else if os.Args[1] == "usercount" {
 		mySet.Parse(os.Args[2:])
-		dbpath := *dbName
-		if dbpath == "" {
-			panic("Invalid DB Path")
-		}
-		db, err := sql.Open("sqlite3", "file:"+dbpath+"?cache=shared&mode=rwc")
-		checkErr(err)
-		defer func() {
-			db.Close()
-		}()
 		s := *startDate + " 00:00:00"
 		e := *endDate + " 23:59:59"
-		query := fmt.Sprintf(`select count(distinct userId)
-		from userinfo
-		where userId not in
-			(
-				select distinct userId from userinfo where
-				datetime(createdAt, 'unixepoch', 'localtime') < '%s'
-			)
-		and status=='completed'
-		and datetime(createdAt, 'unixepoch', 'localtime') < '%s';`, s, e)
-		// fmt.Println(query)
-		rows, err := db.Query(query)
+		count, err := load_data.CountUsers(s, e, *dbName)
 		checkErr(err)
-		var count int
-		for rows.Next() {
-			err = rows.Scan(&count)
-			checkErr(err)
-			fmt.Println("New User Count", count)
+		fmt.Println("New User Count", count)
+	} else if os.Args[1] == "list" {
+		mySet.Parse(os.Args[2:])
+		s := *startDate + " 00:00:00"
+		e := *endDate + " 23:59:59"
+		count, err := load_data.ListRequest(s, e, *dbName)
+		checkErr(err)
+		if *showCount {
+			fmt.Println("Total:", count)
 		}
-		rows.Close()
+	} else {
+		mySet.Usage()
 	}
 
 }
