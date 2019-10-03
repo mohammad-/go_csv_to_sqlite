@@ -20,7 +20,7 @@ func main() {
 
 	startDate := mySet.String("start", "", "start date YYYY-MM-DD")
 	endDate := mySet.String("end", "", "end date YYYY-MM-DD")
-	if len(os.Args) < 2 {
+	if len(os.Args) < 2 || os.Args[1] == "help" {
 		fmt.Println("Commands loaddata, usercount, list")
 		mySet.Usage()
 	} else if os.Args[1] == "loaddata" {
